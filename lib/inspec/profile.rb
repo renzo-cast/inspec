@@ -12,6 +12,7 @@ require "inspec/method_source"
 require "inspec/dependencies/cache"
 require "inspec/dependencies/lockfile"
 require "inspec/dependencies/dependency_set"
+require "inspec/json_profile_summary"
 
 module Inspec
   class Profile
@@ -471,21 +472,32 @@ module Inspec
       # filter files that should not be part of the profile
       # TODO ignore all .files, but add the files to debug output
 
+      # Generate temporary inspec.json for archive
+      Inspec::JsonProfileSummary.produce_json(
+        info: info,
+        dst: "#{root_path}inspec.json",
+        suppress_output: true
+      )
+
       # display all files that will be part of the archive
       @logger.debug "Add the following files to archive:"
       files.each { |f| @logger.debug "    " + f }
+      @logger.debug "    inspec.json"
 
       if opts[:zip]
         # generate zip archive
         require "inspec/archive/zip"
         zag = Inspec::Archive::ZipArchiveGenerator.new
-        zag.archive(root_path, files, dst)
+        zag.archive(root_path, files.push('inspec.json'), dst)
       else
         # generate tar archive
         require "inspec/archive/tar"
         tag = Inspec::Archive::TarArchiveGenerator.new
-        tag.archive(root_path, files, dst)
+        tag.archive(root_path, files.push('inspec.json'), dst)
       end
+
+      # Cleanup
+      File.delete("#{root_path}inspec.json")
 
       @logger.info "Finished archive generation."
       true
